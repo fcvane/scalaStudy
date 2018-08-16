@@ -1,0 +1,8 @@
+(hello.world,1)
+(org.apache.hadoop.fs.{FileSystem,,1)
+(org.apache.hadoop.mapred.{InvalidJobConfException,,1)
+(JobConf},1)
+(org.apache.spark.rdd.RDD;,1)
+(Path},1)
+(org.apache.hadoop.mapred.lib.MultipleTextOutputFormat,1)
+(org.apache.hadoop.mapreduce.security.TokenCache,1)

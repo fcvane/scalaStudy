@@ -15,7 +15,6 @@ object test0817_3 extends App {
   val hiveContext = new HiveContext(sc)
   // enableHiveSupport()，不然使用的是默认的配置，不会读取hive-site.xml
   // SparkSession.builder().enableHiveSupport().config(conf).getOrCreate()
-
   // spark操作hive需要加载hive-site.xml文件，文件存放位置可在$sSPARK_HOME/conf 或者 项目资源文件夹 resources
   hiveContext.sql("show databases").show()
   hiveContext.sql("select * from test_db.test").show()

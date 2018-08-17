@@ -9,16 +9,16 @@ class test0816_1 {
 
 }
 
-object test0816_1{
+object test0816_1 {
   /*
    * @param 文本词频数统计
    * 实现 本地模式运行、文件加载、时间格式化、结果打印等
    */
-  def main(args:Array[String]): Unit = {
+  def main(args: Array[String]): Unit = {
     // 设置日志级别
     Logger.getLogger("org").setLevel(Level.INFO)
     // 时间格式化
-    val fileName:String = "wordCount_"
+    val fileName: String = "wordCount_"
     val currentTime = System.currentTimeMillis
     val formatter = new SimpleDateFormat("yyyy-MM-dd")
     // 加载外部设置
@@ -39,6 +39,8 @@ object test0816_1{
     // 打印
     wordCounts.foreach(print(_))
     // 加载文件
-    wordCounts.saveAsTextFile("./files/"+ fileName + formatter.format(currentTime))
+    wordCounts.saveAsTextFile("./files/" + fileName + formatter.format(currentTime))
+    // 停止SparkContext
+    sc.stop()
   }
 }

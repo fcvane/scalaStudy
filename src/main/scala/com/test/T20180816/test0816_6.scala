@@ -29,5 +29,7 @@ object test0816_6{
     // 把dataFrame注册成为global temporary 视图
     people.createGlobalTempView("people")
     val subDF = sparkSession.sql("select * from global_temp.people where age > 20").show()
+    // 停止SparkContext
+    sparkSession.stop()
   }
 }

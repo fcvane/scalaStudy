@@ -4,10 +4,12 @@ import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkConf, SparkContext}
 
-class test0816_5{
+class test0816_5 {
 
 }
+
 case class Person(name: String, age: Int)
+
 object test0816_5 {
   /*
    *@param DataFrame操作
@@ -41,5 +43,7 @@ object test0816_5 {
     people.registerTempTable("people")
     // 执行sql查询
     val subDF = sqlContext.sql("select * from people where age > 30").show()
+    // 停止SparkContext
+    sc.stop()
   }
 }

@@ -23,5 +23,7 @@ object test0816_7 {
     dataFrame.createGlobalTempView("people")
     // 执行sql查询
     sparkSession.sql("select * from global_temp.people where age > 20").show()
+    // 停止SparkContext
+    sparkSession.stop()
   }
 }

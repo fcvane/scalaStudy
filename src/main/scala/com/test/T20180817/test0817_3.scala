@@ -18,4 +18,6 @@ object test0817_3 extends App {
   // spark操作hive需要加载hive-site.xml文件，文件存放位置可在$sSPARK_HOME/conf 或者 项目资源文件夹 resources
   hiveContext.sql("show databases").show()
   hiveContext.sql("select * from test_db.test").show()
+
+  sc.stop()
 }

@@ -44,7 +44,7 @@ object test0820_3 extends App {
     // 如果是true，则这个消费者的偏移量会在后台自动提交
     "enable.auto.commit" -> (false: java.lang.Boolean)
   )
-//   val stream = KafkaUtils.createDirectStream[String, String](ssc, PreferConsistent, Subscribe[String, String](topics, kafkaParams))
+  //   val stream = KafkaUtils.createDirectStream[String, String](ssc, PreferConsistent, Subscribe[String, String](topics, kafkaParams))
   /*
    * 判断zk中是否有保存过该计算的偏移量
    * 如果没有保存过,使用不带偏移量的计算,在计算完后保存
@@ -53,7 +53,7 @@ object test0820_3 extends App {
    */
   val stream = if (zk.znodeIsExists(s"${topic}offset")) {
     val nor = zk.znodeDataGet(s"${topic}offset")
-    //创建以topic，分区为k 偏移度为v的map
+    //创建topic，分区为k 偏移度为v的map
     val newOffset = Map(new TopicPartition(nor(0).toString, nor(1).toInt) -> nor(2).toLong)
     println(s"topic ${nor(0).toString}")
     println(s"Partition ${nor(1).toInt}")

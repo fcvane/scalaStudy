@@ -23,6 +23,7 @@ object test0820_1 extends App {
     //<topic> topic名称
     //<messagesPerSec> 每秒产生的消息
     //<wordsPerMessage> 每条消息包括的单词数
+    // bigdata03:9092,bigdata06:9092,bigdata08:9092 test0820 1 1
     System.err.println("Usage: PronName <metadataBrokerList> <topic> <messagesPerSec> <wordsPerMessage>")
     System.exit(1)
   }

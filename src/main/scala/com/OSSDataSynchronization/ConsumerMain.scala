@@ -1,13 +1,12 @@
 package com.OSSDataSynchronization
 
-import java.io.{File, FileWriter}
 import java.util.Properties
 
+import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark
-import org.apache.spark.{SparkConf, TaskContext}
+import org.apache.spark.SparkConf
 import org.apache.spark.streaming.StreamingContext
-import org.apache.spark.streaming.kafka010.{CanCommitOffsets, HasOffsetRanges, OffsetRange}
 
 class ConsumerMain {
 
@@ -27,7 +26,8 @@ object ConsumerMain extends App {
   // 消费主题
   val properties = new Properties()
   properties.load(this.getClass.getResourceAsStream("/config.properties"))
-  val topics = properties.getProperty("kafka.topic").split(",").toSet
+  // val topics = properties.getProperty("kafka.topic").split(",").toSet
+  val topic = "test0820"
   val group = "test"
   // 消费者配置
   val kafkaParams = Map(
@@ -43,27 +43,47 @@ object ConsumerMain extends App {
     // 如果是true，则这个消费者的偏移量会在后台自动提交
     "enable.auto.commit" -> (false: java.lang.Boolean)
   )
-  val stream = kf.createDirectStream(ssc, kafkaParams, topics)
-  stream.foreachRDD {
-    rdd =>
-      val offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
-      // // 获取偏移量
-      rdd.foreachPartition {
-        iter =>
-          val o: OffsetRange = offsetRanges(TaskContext.get.partitionId)
-          println(s"[ ConsumerMain ] topic: ${o.topic}; partition: ${o.partition}; fromoffset: ${o.fromOffset}; utiloffset: ${o.untilOffset}")
-          // 写zookeeper
-          zk.zkSaveOffset(s"${o.topic}offset", s"${o.partition}", s"${o.topic},${o.partition},${o.untilOffset}")
-          // 关闭
-          zk.zooKeeper.close()
-          // 写本地文件系统
-          val fw = new FileWriter(new File("./files/offset.log"), true)
-          fw.write(s"${o.topic} ${o.partition} ${o.fromOffset} ${o.untilOffset} \n")
-          fw.close()
-          // 新版本Kafka自身保存
-          stream.asInstanceOf[CanCommitOffsets].commitAsync(offsetRanges)
-      }
+  //  val stream = kf.createDirectStream(ssc, kafkaParams, topics)
+  // 创建数据流
+
+  val stream = if (zk.znodeIsExists(s"${topic}offset")) {
+    val array = zk.znodeDataGet(s"${topic}offset")
+    //创建topic，分区为k 偏移度为v的map
+    val newOffset = Array()
+    array.foreach(arr => {
+      println(s"[ ConsumerMain ] topic: ${arr(0).toString}; partition: ${arr(1).toInt}; fromoffset: ${arr(2).toInt}; utiloffset: ${arr(2).toInt}")
+      val newOffset = Map(new TopicPartition(arr(0).toString, arr(1).toInt) -> arr(3).toLong)
+      println(s"[ ConsumerMain ] zk中取出来的kafka偏移量 $newOffset")
+    })
   }
-  ssc.start()
-  ssc.awaitTermination()
+
+  //    KafkaUtils.createDirectStream[String, String](ssc, PreferConsistent, Subscribe[String, String](topic.split(",").toSet, kafkaParams, newOffset))
+  //  } else {
+  //    println(s"[ ConsumerMain ] 第一次计算,没有zk偏移量文件")
+  //    KafkaUtils.createDirectStream[String, String](ssc, PreferConsistent, Subscribe[String, String](topic.split(",").toSet, kafkaParams))
+  //  }
+  //  stream.foreachRDD {
+  //    rdd =>
+  //      val offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
+  //      //  保存偏移量
+  //      rdd.foreachPartition {
+  //        iter =>
+  //          val o: OffsetRange = offsetRanges(TaskContext.get.partitionId)
+  //          println(s"[ ConsumerMain ] topic: ${o.topic}; partition: ${o.partition}; fromoffset: ${o.fromOffset}; utiloffset: ${o.untilOffset}")
+  //          // 写zookeeper
+  //          zk.zkSaveOffset(s"${o.topic}offset", s"${o.partition}", s"${o.topic},${o.partition},${o.fromOffset},${o.untilOffset}")
+  //          // 关闭
+  //          zk.zooKeeper.close()
+  //          // 写本地文件系统
+  //          val fw = new FileWriter(new File("./files/offset.log"), true)
+  //          fw.write(s"${o.topic} ${o.partition} ${o.fromOffset} ${o.untilOffset} \n")
+  //          fw.close()
+  //          // 新版本Kafka自身保存
+  //          stream.asInstanceOf[CanCommitOffsets].commitAsync(offsetRanges)
+  //      }
+  //  }
+  //  ssc.start()
+  //  ssc.awaitTermination()
+
+
 }

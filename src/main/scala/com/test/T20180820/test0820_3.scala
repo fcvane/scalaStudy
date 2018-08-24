@@ -75,7 +75,7 @@ object test0820_3 extends App {
   stream.foreachRDD {
     rdd =>
       val offsetRanges = rdd.asInstanceOf[HasOffsetRanges].offsetRanges
-      // // 获取偏移量
+      // 保存偏移量
       rdd.foreachPartition {
         iter =>
           val o: OffsetRange = offsetRanges(TaskContext.get.partitionId)

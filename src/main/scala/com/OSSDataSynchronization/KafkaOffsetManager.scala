@@ -1,11 +1,13 @@
 package com.OSSDataSynchronization
 
+
 import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.apache.kafka.common.TopicPartition
 import org.apache.spark.rdd.RDD
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.dstream.InputDStream
 import org.apache.spark.streaming.kafka010.{HasOffsetRanges, KafkaUtils, LocationStrategies}
+import org.apache.spark.streaming.kafka010.ConsumerStrategies.Subscribe
+import org.apache.spark.streaming.kafka010.LocationStrategies.PreferConsistent
 
 class KafkaOffsetManager {
 
@@ -20,37 +22,45 @@ object KafkaOffsetManager {
   // lazy val log = org.apache.log4j.LogManager.getLogger("KafkaOffsetManager")
   val zk = ZookeeperManager
 
-  /** 读取zk中偏移量，如果有就返回对应的分区和偏移量
-    * 如果没有就返回None
-    *
-    * @param zkOffsetPath 偏移量路径
-    * @param topic        topic名字
-    * @return 偏移量Map or None
-    */
-  def zkReadOffset(zkOffsetPath: String, topic: String): Option[Map[TopicPartition, Long]] = {
-    if (zk.znodeIsExists(zkOffsetPath)) {
-      val nor = zk.znodeDataGet(zkOffsetPath)
-      //创建topic，分区为k 偏移度为v的map 分区序号1:偏移量1,分区序号2:偏移量2,......
-      val newOffset = Map(new TopicPartition(nor(0).toString, nor(1).toInt) -> nor(2).toLong)
-      println("[ KafkaOffsetManager ] --------------------------------------------------------------------")
-      println(s"[ KafkaOffsetManager ] topic ${nor(0).toString}")
-      println(s"[ KafkaOffsetManager ] Partition ${nor(1).toInt}")
-      println(s"[ KafkaOffsetManager ] offset ${nor(2).toLong}")
-      println(s"[ KafkaOffsetManager ] zk中取出来的kafka偏移量 $newOffset")
-      println("[ KafkaOffsetManager ] --------------------------------------------------------------------")
-      Some(newOffset)
-    }
-    else {
-      println("[ KafkaOffsetManager ] --------------------------------------------------------------------")
-      println("[ KafkaOffsetManager ] 第一次计算,没有zk偏移量文件")
-      println(s"[ KafkaOffsetManager ] 手动创建一个偏移量文件 ${topic}offset 默认从0偏移度开始计算")
-      println("[ KafkaOffsetManager ] --------------------------------------------------------------------")
-      zk.znodeCreate(zkOffsetPath, s"$topic, 0")
-      val nor = zk.znodeDataGet(zkOffsetPath)
-      val newOffset = Map(new TopicPartition(nor(0).toString, nor(1).toInt) -> nor(2).toLong)
-      Some(newOffset)
-    }
+  def createKafkaStream(ssc: StreamingContext,
+                        kafkaParams: Map[String, Object],
+                        topics: Set[String],
+                        offset: Map[String, String]): InputDStream[ConsumerRecord[String, String]] = {
+    val kafkaStream = KafkaUtils.createDirectStream[String, String](ssc, PreferConsistent, Subscribe[String, String](topics, kafkaParams))
+    kafkaStream //返回创建的kafkaStream
   }
+
+  //  /** 读取zk中偏移量，如果有就返回对应的分区和偏移量
+  //    * 如果没有就返回None
+  //    *
+  //    * @param zkOffsetPath 偏移量路径
+  //    * @param topic        topic名字
+  //    * @return 偏移量Map or None
+  //    */
+  //  def zkReadOffset(zkOffsetPath: String, topic: String): Option[Map[TopicPartition, Long]] = {
+  //    if (zk.znodeIsExists(zkOffsetPath)) {
+  //      val nor = zk.znodeDataGet(zkOffsetPath)
+  //      //创建topic，分区为k 偏移度为v的map 分区序号1:偏移量1,分区序号2:偏移量2,......
+  //      val newOffset = Map(new TopicPartition(nor(0).toString, nor(1).toInt) -> nor(2).toLong)
+  //      println("[ KafkaOffsetManager ] --------------------------------------------------------------------")
+  //      println(s"[ KafkaOffsetManager ] topic ${nor(0).toString}")
+  //      println(s"[ KafkaOffsetManager ] Partition ${nor(1).toInt}")
+  //      println(s"[ KafkaOffsetManager ] offset ${nor(2).toLong}")
+  //      println(s"[ KafkaOffsetManager ] zk中取出来的kafka偏移量 $newOffset")
+  //      println("[ KafkaOffsetManager ] --------------------------------------------------------------------")
+  //      Some(newOffset)
+  //    }
+  //    else {
+  //      println("[ KafkaOffsetManager ] --------------------------------------------------------------------")
+  //      println("[ KafkaOffsetManager ] 第一次计算,没有zk偏移量文件")
+  //      println(s"[ KafkaOffsetManager ] 手动创建一个偏移量文件 ${topic}offset 默认从0偏移度开始计算")
+  //      println("[ KafkaOffsetManager ] --------------------------------------------------------------------")
+  //      zk.znodeCreate(zkOffsetPath, s"$topic, 0")
+  //      val nor = zk.znodeDataGet(zkOffsetPath)
+  //      val newOffset = Map(new TopicPartition(nor(0).toString, nor(1).toInt) -> nor(2).toLong)
+  //      Some(newOffset)
+  //    }
+  //  }
 
   /** 保存每个批次的rdd的offset到zk中
     *
@@ -83,8 +93,8 @@ object KafkaOffsetManager {
   }
 
 
-def main (args: Array[String] ): Unit = {
-  zkReadOffset ("test0820offset", "test0820")
-}
+//  def main(args: Array[String]): Unit = {
+//    zkReadOffset("test0820offset", "test0820")
+//  }
 
 }

@@ -24,5 +24,5 @@ object test0823_1 extends App{
   // 注册临时表
   df.registerTempTable("tt")
   hiveContext.sql("select * from tt where id in (select 1 from test_db.dual)").show()
-  hiveContext.sql("select 1 from test_db.dual").show()
+//  hiveContext.sql("select 1 from test_db.dual").show()
 }

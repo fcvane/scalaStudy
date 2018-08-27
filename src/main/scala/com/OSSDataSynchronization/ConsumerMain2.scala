@@ -11,11 +11,11 @@ import org.apache.spark.TaskContext.get
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.kafka010.{CanCommitOffsets, HasOffsetRanges, OffsetRange}
 
-class ConsumerMain {
+class ConsumerMain2 {
 
 }
 
-object ConsumerMain extends App {
+object ConsumerMain2 extends App {
 
   val zk = ZookeeperManager
   val kf = KafkaManager
@@ -27,7 +27,7 @@ object ConsumerMain extends App {
   conf.set("spark.streaming.backpressure.enabled", "true") //激活削峰功能
   conf.set("spark.streaming.backpressure.initialRate", "5000") //第一次读取的最大数据值
   conf.set("spark.streaming.kafka.maxRatePerPartition", "2000") //每个进程每秒最多从kafka读取的数据条数
-  // 消费主题
+
   val properties = new Properties()
   properties.load(this.getClass.getResourceAsStream("/config.properties"))
   val kuduMaster = properties.getProperty("kudu.master")

@@ -68,6 +68,27 @@ object test0823_2 extends App {
     scanner.close()
   }
 
+  //获取hbase表中指定Rowkey的数据
+  //scan 'test0820'
+  def scanRowkeyDataFromHTable(rowkey: String, columnFamily: String, column: String) = {
+    //定义scan对象
+    val scan = new Scan(Bytes.toBytes(rowkey), Bytes.toBytes(rowkey))
+    //添加列簇名称Bytes.toBytes(startRowkey)
+    scan.addFamily(columnFamily.getBytes())
+    //从table中抓取数据来scan
+    val scanner = table.getScanner(scan)
+    var result = scanner.next()
+    //数据不为空时输出数据
+    while (result != null) {
+      println(s"rowkey:${Bytes.toString(result.getRow)},列簇:${columnFamily}:${column},value:${Bytes.toString(result.getValue(Bytes.toBytes(columnFamily), Bytes.toBytes(column)))}")
+      result = scanner.next()
+    }
+    //通过scan取完数据后，记得要关闭ResultScanner，否则RegionServer可能会出现问题(对应的Server资源无法释放)
+    scanner.close()
+
+
+  }
+
   //删除某条记录
   //delete 'test0820','1','info:name'
   def deleteRecord(rowkey: String, columnFamily: String, column: String) = {
@@ -91,8 +112,9 @@ object test0823_2 extends App {
 
   println("1111111111111111111111111111111")
   //  createTable("test0823",Array("info"))
-  insertTable("2", "info", "age", "44")
-  scanDataFromHTable("info", "age")
+  //  insertTable("2", "info", "age", "44")
+  //  scanDataFromHTable("info", "age")
+  scanRowkeyDataFromHTable("001", "info", "age")
   //  deleteRecord("1", "info", "name")
   println("2222222222222222222222222222222")
   close()

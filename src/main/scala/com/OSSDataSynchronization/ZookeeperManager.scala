@@ -44,6 +44,7 @@ object ZookeeperManager {
     */
   def znodeCreate(znode: String, data: String) {
     println(s"[ ZookeeperManager ] zk create /$znode , $data")
+    //    if zooKeeper.
     zooKeeper.create(s"/$znode", data.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT)
   }
 
@@ -68,7 +69,6 @@ object ZookeeperManager {
     connect()
     println(s"[ ZookeeperManager ] zk data get /$znode")
     try {
-      println("[ 11111111111111111111111111111111 ]")
       val parArray = zooKeeper.getChildren(s"/$znode", true).toArray
       if (parArray != null) {
         //        parArray.foreach(partition => {
@@ -89,19 +89,6 @@ object ZookeeperManager {
   }
 
   /**
-    * Kafka offset存储位置判断
-    *
-    * @param znode 数据节点
-    */
-  def znodeIsExists(znode: String): Boolean = {
-    connect()
-    zooKeeper.exists(s"/$znode", true) match {
-      case null => false
-      case _ => true
-    }
-  }
-
-  /**
     * 保存每个批次的rdd的offset到zk中
     *
     * @param znode     数据节点
@@ -114,17 +101,34 @@ object ZookeeperManager {
     zooKeeper.exists(s"/$znode/$partition", true) match {
       case null => {
         zooKeeper.exists(s"/$znode", true) match {
-          case null => znodeCreate(znode, "offset")
-          case _ => znodeCreate(s"$znode/$partition", data)
+          case null =>
+            println(s"[ ZookeeperManager ] /$znode is not exists ")
+            znodeCreate(s"$znode", "offset")
+            znodeCreate(s"$znode/$partition", data)
+          case _ => println(s"[ ZookeeperManager ] /$znode is exists ")
+            zooKeeper.exists(s"/$znode/$partition", true) match {
+              case null =>
+                //会话失效或者连接丢失后的重新生成新的session
+                try {
+                  znodeCreate(s"$znode/$partition", data)
+                }
+                catch {
+                  case _ =>
+                    zooKeeper = new ZooKeeper(properties.getProperty("zookeeper.quorm"), TIME_OUT, watcher)
+                    znodeCreate(s"$znode/$partition", data)
+                }
+              case _ =>
+                znodeDataSet(s"$znode/$partition", data)
+            }
         }
-        znodeCreate(s"$znode/$partition", data)
       }
       case _ => znodeDataSet(s"$znode/$partition", data)
     }
+    zooKeeper.close()
   }
 
   def main(args: Array[String]): Unit = {
-    val znode = "test0820offset"
+    val znode = "oggoffset"
     val array = znodeDataGet(znode)
     array.foreach(arr => {
       println(s"[ ZookeeperManager ] topic: ${arr(0).toString}; partition: ${arr(1).toInt}; fromoffset: ${arr(2).toInt}; utiloffset: ${arr(2).toInt}")

@@ -74,7 +74,7 @@ object ConsumerMain extends App {
           lines => {
             lines.foreach(line => {
               total.add(1)
-              kf.dataParseJson(kuduClient, line.value())
+              //              kf.dataParseJson(kuduClient, line.value())
               val tup = kd.kuduConnect(line.value())
               println(s"[ ConsumerMain ] table and current_timestamp: $tup")
               btName += tup._1

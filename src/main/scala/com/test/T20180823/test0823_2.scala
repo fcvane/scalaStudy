@@ -112,9 +112,9 @@ object test0823_2 extends App {
 
   println("1111111111111111111111111111111")
   //  createTable("test0823",Array("info"))
-  //  insertTable("2", "info", "age", "44")
+  insertTable("3", "info", "age", "44")
   //  scanDataFromHTable("info", "age")
-  scanRowkeyDataFromHTable("001", "info", "age")
+  //  scanRowkeyDataFromHTable("001", "info", "age")
   //  deleteRecord("1", "info", "name")
   println("2222222222222222222222222222222")
   close()

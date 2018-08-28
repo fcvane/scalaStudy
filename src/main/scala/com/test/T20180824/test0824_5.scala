@@ -48,7 +48,6 @@ object test0824_5 extends App {
     val table = connection.getTable(TableName.valueOf("test0818"))
     x.foreach { x => {
       println("foreach循环插入")
-      var table: Table = null
       val put = new Put(Bytes.toBytes(x.sr_id.reverse))
       put.addColumn(Bytes.toBytes("info"), Bytes.toBytes("CRM_AUTO_PZ_TYPE"), Bytes.toBytes("10000005"))
       put.addColumn(Bytes.toBytes("info"), Bytes.toBytes("CRM_AUTO_PZ_ELSE_TYPE"), Bytes.toBytes("无法归类"))

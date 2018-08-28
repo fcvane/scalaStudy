@@ -1,6 +1,6 @@
 package com.OSSDataSynchronization
 
-import java.util
+
 import java.util.Properties
 
 import com.alibaba.fastjson.JSON
@@ -10,12 +10,15 @@ import org.apache.kudu.client.KuduClient
 
 class KuduManager {
 
+
 }
+
 
 object KuduManager {
   /**
     * Kudu操作
     */
+
 
   // PROPERTIES文件读取
   val properties = new Properties()
@@ -23,8 +26,10 @@ object KuduManager {
   val kuduClient = new KuduClient.KuduClientBuilder(properties.getProperty("kudu.master")).build()
   val newSession = kuduClient.newSession()
 
-  def kuduConnect(line: String) {
-    val result = new util.HashMap[String, String]()
+
+  def kuduConnect(line: String): (String, String) = {
+    var btName: String = null
+    var currentTs: String = null
     println("[ KuduManager ] kudu connect")
     //解析json
     val json = JSON.parseObject(line)
@@ -36,9 +41,11 @@ object KuduManager {
     tableName match {
       case null =>
         println("[ KuduManager ] json is abnormal where not exists tablename ")
-        None
+        throw new RuntimeException
       case _ =>
         println("[ KuduManager ] json is normal ")
+        btName = tableName
+        currentTs = json.getString("current_ts")
         val kuduTable = kuduClient.openTable(json.getString("table").split("\\.")(1).toLowerCase())
         val schema = kuduTable.getSchema
         val upsert = kuduTable.newUpsert
@@ -66,11 +73,10 @@ object KuduManager {
           case _ =>
             row.addString("delete_state", "0")
         }
-
         newSession.apply(upsert)
     }
+    (btName, currentTs)
   }
-
 
 
 }

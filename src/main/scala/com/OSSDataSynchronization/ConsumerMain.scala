@@ -11,8 +11,8 @@ import org.apache.kudu.client.KuduClient
 import org.apache.spark
 import org.apache.spark.SparkConf
 import org.apache.spark.TaskContext.get
-import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.kafka010.{CanCommitOffsets, HasOffsetRanges, OffsetRange}
+import org.apache.spark.streaming.{Seconds, StreamingContext}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -53,8 +53,30 @@ object ConsumerMain extends App {
     // 如果是true，则这个消费者的偏移量会在后台自动提交
     "enable.auto.commit" -> (false: java.lang.Boolean)
   )
+  // 参数
+  // 读取offset
+  // 采用zk 本地文件存储方式读取 -- kafka自身保存的不需要处理
   // 创建数据流
   val stream = kf.createDirectStream(ssc, kafkaParams, topics)
+  if (args.length == 1) {
+    println("[ ConsumerMain ] exists parameters: maybe zk or localfile")
+    args(0) match {
+      case "zk" =>
+        println(s"[ ConsumerMain ] parameter is correct as ${args(0)}: zookeeper storage offsets")
+        val stream = kf.createDirectStreamReadOffset(ssc, kafkaParams, topics, args(0))
+      case "local" =>
+        println(s"[ ConsumerMain ] parameter is correct as ${args(0)}: local file storage offsets")
+        val stream = kf.createDirectStreamReadOffset(ssc, kafkaParams, topics, args(0))
+      case _ =>
+        println("[ ConsumerMain ] parameter error")
+        val stream = kf.createDirectStream(ssc, kafkaParams, topics)
+    }
+  }
+  else {
+    println("[ ConsumerMain ] process not exists parameters: kafka own storage")
+    val stream = kf.createDirectStream(ssc, kafkaParams, topics)
+  }
+
   // PROPERTIES文件读取
   val kuduClient = new KuduClient.KuduClientBuilder(properties.getProperty("kudu.master")).build()
 
@@ -74,32 +96,19 @@ object ConsumerMain extends App {
           lines => {
             lines.foreach(line => {
               total.add(1)
-              //              kf.dataParseJson(kuduClient, line.value())
+              // kf.dataParseJson(kuduClient, line.value())
               val tup = kd.kuduConnect(line.value())
               println(s"[ ConsumerMain ] table and current_timestamp: $tup")
               btName += tup._1
               currentTs += tup._2
-              //保存偏移量
-              val o: OffsetRange = offsetRanges(get.partitionId)
-              println(s"[ ConsumerMain ] topic: ${o.topic}; partition: ${o.partition}; fromoffset: ${o.fromOffset}; utiloffset: ${o.untilOffset}")
-              // 写zookeeper
-              zk.zkSaveOffset(s"${o.topic}offset", s"${o.partition}", s"${o.topic},${o.partition},${o.fromOffset},${o.untilOffset}")
-              // 关闭
-              zk.zooKeeper.close()
-              // 写本地文件系统
-              val fw = new FileWriter(new File("./files/offset.log"), true)
-              fw.write(s"${o.topic} ${o.partition} ${o.fromOffset} ${o.untilOffset} \n")
-              fw.close()
-              // 新版本Kafka自身保存
-              stream.asInstanceOf[CanCommitOffsets].commitAsync(offsetRanges)
             })
           }
         }
         val rddTime = new Timestamp(time.milliseconds).toString.split("\\.")(0)
         val bt_endTime = timeFormat.format(new Date())
         println(s"[ ConsumerMain ] ${btName} , ${currentTs}")
-        println(s"[ ConsumerMain ] 同步基表名称遍历: ${btName.toList.distinct.mkString(",")}")
-        println(s"[ ConsumerMain ] 当前同步数据时间 current_ts: ${currentTs.toList.distinct.mkString(",")}")
+        println(s"[ ConsumerMain ] synchronous base table name traversal: ${btName.toList.distinct.mkString(",")}")
+        println(s"[ ConsumerMain ] current_ts data time: ${currentTs.toList.distinct.mkString(",")}")
 
         //val logfile = "/tmp/topics/bt_log" + dayFormat.format(new Date()) + ".log"
         val logfile = "./files/bt_log" + dayFormat.format(new Date()) + ".log"
@@ -153,8 +162,29 @@ object ConsumerMain extends App {
         // 清空数组
         btName.clear()
         currentTs.clear()
+
+        //保存偏移量
+        // zk存储偏移量
+        val o: OffsetRange = offsetRanges(get.partitionId)
+        println(s"[ ConsumerMain ] topic: ${o.topic}; partition: ${o.partition}; fromoffset: ${o.fromOffset}; utiloffset: ${o.untilOffset}")
+        // 写zookeeper
+        zk.zkSaveOffset(s"${o.topic}offset", s"${o.partition}", s"${o.topic},${o.partition},${o.fromOffset},${o.untilOffset}")
+        // 关闭
+        zk.zooKeeper.close()
+
+        val offset: ArrayBuffer[String] = new ArrayBuffer[String]()
+        for (i <- 0 until offsetRanges.length) {
+          offset += (offsetRanges(i).topic + "," + offsetRanges(i).partition + "," + offsetRanges(i).fromOffset + "," + offsetRanges(i).untilOffset)
+        }
+        // 写本地文件系统 -覆盖
+        val fwl = new FileWriter(new File("./files/offset.log"), false)
+        fwl.write(s"${offset} \n")
+        fwl.close()
+        // 新版本Kafka自身保存
+        stream.asInstanceOf[CanCommitOffsets].commitAsync(offsetRanges)
+
       } else {
-        println("此时间段内无数据")
+        println(s"[ ConsumerMain ] no data during this time period (${Seconds(5)})")
         //于HDFS上记录日志
         val nullTime = timeFormat.format(new Date())
         val rddTime = new Timestamp(time.milliseconds).toString.split("\\.")(0)
@@ -192,6 +222,7 @@ object ConsumerMain extends App {
           + "基表写入失败总数: 0" + "\n"
         )
         fw.close()
+
         // 清空数组
         btName.clear()
         currentTs.clear()

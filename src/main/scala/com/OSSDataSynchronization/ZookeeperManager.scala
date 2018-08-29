@@ -2,6 +2,7 @@ package com.OSSDataSynchronization
 
 import java.util.Properties
 
+import org.apache.kafka.common.TopicPartition
 import org.apache.zookeeper.ZooDefs.Ids
 import org.apache.zookeeper.{CreateMode, WatchedEvent, Watcher, ZooKeeper}
 
@@ -63,29 +64,26 @@ object ZookeeperManager {
     * 获取znode数据
     *
     * @param znode 数据节点
-    * @return Array[Array[String]] 返回二位数组
+    * @return Map 返回Map
     **/
-  def znodeDataGet(znode: String): Array[Array[String]] = {
+  def znodeDataGet(znode: String): Map[TopicPartition, Long] = {
+    //: Map[TopicPartition, Long] =
     connect()
     println(s"[ ZookeeperManager ] zk data get /$znode")
-    try {
-      val parArray = zooKeeper.getChildren(s"/$znode", true).toArray
-      if (parArray != null) {
-        //        parArray.foreach(partition => {
-        //          println(new String(zooKeeper.getData(s"/$znode/$partition", true, null), "utf-8").split(","))
-        //        })
-        println(parArray.map(x => new String(zooKeeper.getData(s"/$znode/$x", true, null), "utf-8").split(",")) + "1111")
-        parArray.map(x => new String(zooKeeper.getData(s"/$znode/$x", true, null), "utf-8").split(",")).foreach(println(_))
-        parArray.map(x => new String(zooKeeper.getData(s"/$znode/$x", true, null), "utf-8").split(","))
-      }
-      else {
-        Array(new String(zooKeeper.getData(s"/$znode", true, null), "utf-8").split(","))
-      }
-    } catch {
-      case _: Exception => {
-        Array(Array())
-      }
+    var fromOffsets: Map[TopicPartition, Long] = Map()
+    val children = zooKeeper.getChildren(s"/$znode", true).toArray()
+    if (children.length > 0) {
+      val fromOffsets = children.map(x => new String(zooKeeper.getData(s"/$znode/$x", true, null), "utf-8").split(","))
+        .map(x => new TopicPartition(x(0), x(1).toInt) -> x(2).toLong).toMap
+      println(s"[ ZookeeperManager ] zk data : ${fromOffsets.foreach(println(_))}")
     }
+    else {
+      val fromOffsets = Set(new String(zooKeeper.getData(s"/$znode", true, null), "utf-8").split(",")).map { x =>
+        new TopicPartition(x(0), x(1).toInt) -> x(2).toLong
+      }.toMap
+      println(s"[ ZookeeperManager ] zk data : ${fromOffsets.foreach(println(_))}")
+    }
+    fromOffsets
   }
 
   /**
@@ -98,40 +96,50 @@ object ZookeeperManager {
   def zkSaveOffset(znode: String, partition: String, data: String) {
     connect()
     println(s"[ ZookeeperManager ] offset work /$znode")
-    zooKeeper.exists(s"/$znode/$partition", true) match {
-      case null => {
-        zooKeeper.exists(s"/$znode", true) match {
-          case null =>
-            println(s"[ ZookeeperManager ] /$znode is not exists ")
-            znodeCreate(s"$znode", "offset")
-            znodeCreate(s"$znode/$partition", data)
-          case _ => println(s"[ ZookeeperManager ] /$znode is exists ")
-            zooKeeper.exists(s"/$znode/$partition", true) match {
-              case null =>
-                //会话失效或者连接丢失后的重新生成新的session
-                try {
-                  znodeCreate(s"$znode/$partition", data)
-                }
-                catch {
-                  case _ =>
-                    zooKeeper = new ZooKeeper(properties.getProperty("zookeeper.quorm"), TIME_OUT, watcher)
+    if (partition != null) {
+      zooKeeper.exists(s"/$znode/$partition", true) match {
+        case null => {
+          zooKeeper.exists(s"/$znode", true) match {
+            case null =>
+              println(s"[ ZookeeperManager ] /$znode is not exists ")
+              znodeCreate(s"$znode", "offset")
+              znodeCreate(s"$znode/$partition", data)
+            case _ => println(s"[ ZookeeperManager ] /$znode is exists ")
+              zooKeeper.exists(s"/$znode/$partition", true) match {
+                case null =>
+                  //会话失效或者连接丢失后的重新生成新的session
+                  try {
                     znodeCreate(s"$znode/$partition", data)
-                }
-              case _ =>
-                znodeDataSet(s"$znode/$partition", data)
-            }
+                  }
+                  catch {
+                    case _: Exception =>
+                      zooKeeper = new ZooKeeper(properties.getProperty("zookeeper.quorm"), TIME_OUT, watcher)
+                      znodeCreate(s"$znode/$partition", data)
+                  }
+                case _ =>
+                  znodeDataSet(s"$znode/$partition", data)
+              }
+          }
         }
+        case _ => znodeDataSet(s"$znode/$partition", data)
       }
-      case _ => znodeDataSet(s"$znode/$partition", data)
+    }
+    else {
+      zooKeeper.exists(s"/$znode", true) match {
+        case null =>
+          println(s"[ ZookeeperManager ] /$znode is not exists ")
+          znodeCreate(s"$znode", data)
+        case _ =>
+          println(s"[ ZookeeperManager ] /$znode is exists ")
+          znodeDataSet(s"$znode", data)
+      }
     }
     zooKeeper.close()
   }
 
   def main(args: Array[String]): Unit = {
-    val znode = "oggoffset"
-    val array = znodeDataGet(znode)
-    array.foreach(arr => {
-      println(s"[ ZookeeperManager ] topic: ${arr(0).toString}; partition: ${arr(1).toInt}; fromoffset: ${arr(2).toInt}; utiloffset: ${arr(2).toInt}")
-    })
+    znodeDataGet("oggoffset")
+    //    znodeDataGet("ogg")
+
   }
 }

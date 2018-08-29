@@ -76,7 +76,8 @@ object KuduManager {
         newSession.apply(upsert)
     }
     (btName, currentTs)
-  }
 
+  }
+  kuduClient.close()
 
 }

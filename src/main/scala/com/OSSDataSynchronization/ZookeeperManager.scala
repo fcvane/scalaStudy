@@ -70,20 +70,20 @@ object ZookeeperManager {
     //: Map[TopicPartition, Long] =
     connect()
     println(s"[ ZookeeperManager ] zk data get /$znode")
-    var fromOffsets: Map[TopicPartition, Long] = Map()
     val children = zooKeeper.getChildren(s"/$znode", true).toArray()
     if (children.length > 0) {
       val fromOffsets = children.map(x => new String(zooKeeper.getData(s"/$znode/$x", true, null), "utf-8").split(","))
-        .map(x => new TopicPartition(x(0), x(1).toInt) -> x(2).toLong).toMap
-      println(s"[ ZookeeperManager ] zk data : ${fromOffsets.foreach(println(_))}")
+        .map(x => new TopicPartition(x(0), x(1).toInt) -> x(3).toLong).toMap
+      println(s"[ ZookeeperManager ] zk data : ${fromOffsets}")
+      fromOffsets
     }
     else {
       val fromOffsets = Set(new String(zooKeeper.getData(s"/$znode", true, null), "utf-8").split(",")).map { x =>
-        new TopicPartition(x(0), x(1).toInt) -> x(2).toLong
+        new TopicPartition(x(0), x(1).toInt) -> x(3).toLong
       }.toMap
-      println(s"[ ZookeeperManager ] zk data : ${fromOffsets.foreach(println(_))}")
+      println(s"[ ZookeeperManager ] zk data : ${fromOffsets}")
+      fromOffsets
     }
-    fromOffsets
   }
 
   /**

@@ -74,10 +74,9 @@ object KuduManager {
             row.addString("delete_state", "0")
         }
         newSession.apply(upsert)
+//        kuduClient.close()
     }
     (btName, currentTs)
 
   }
-  kuduClient.close()
-
 }

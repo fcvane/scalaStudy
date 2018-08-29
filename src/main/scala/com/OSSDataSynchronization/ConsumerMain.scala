@@ -10,8 +10,7 @@ import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.kudu.client.KuduClient
 import org.apache.spark
 import org.apache.spark.SparkConf
-import org.apache.spark.TaskContext.get
-import org.apache.spark.streaming.kafka010.{CanCommitOffsets, HasOffsetRanges, OffsetRange}
+import org.apache.spark.streaming.kafka010.{CanCommitOffsets, HasOffsetRanges}
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 
 import scala.collection.mutable.ArrayBuffer
@@ -36,7 +35,7 @@ object ConsumerMain extends App {
   // 消费主题
   val properties = new Properties()
   properties.load(this.getClass.getResourceAsStream("/config.properties"))
-  val kuduMaster = properties.getProperty("kudu.master")
+  val kuduClient = new KuduClient.KuduClientBuilder(properties.getProperty("kudu.master")).build()
   val topics = properties.getProperty("kafka.topic").split(",").toSet
   val group = "test"
   // 消费者配置
@@ -57,35 +56,33 @@ object ConsumerMain extends App {
   // 读取offset
   // 采用zk 本地文件存储方式读取 -- kafka自身保存的不需要处理
   // 创建数据流
-  val stream = kf.createDirectStream(ssc, kafkaParams, topics)
+  var stream = kf.createDirectStream(ssc, kafkaParams, topics)
   if (args.length == 1) {
     println("[ ConsumerMain ] exists parameters: maybe zk or localfile")
     args(0) match {
       case "zk" =>
         println(s"[ ConsumerMain ] parameter is correct as ${args(0)}: zookeeper storage offsets")
-        val stream = kf.createDirectStreamReadOffset(ssc, kafkaParams, topics, args(0))
+        var stream = kf.createDirectStreamReadOffset(ssc, kafkaParams, topics, args(0))
       case "local" =>
         println(s"[ ConsumerMain ] parameter is correct as ${args(0)}: local file storage offsets")
-        val stream = kf.createDirectStreamReadOffset(ssc, kafkaParams, topics, args(0))
+        var stream = kf.createDirectStreamReadOffset(ssc, kafkaParams, topics, args(0))
       case _ =>
         println("[ ConsumerMain ] parameter error")
-        val stream = kf.createDirectStream(ssc, kafkaParams, topics)
+        var stream = kf.createDirectStream(ssc, kafkaParams, topics)
     }
   }
   else {
     println("[ ConsumerMain ] process not exists parameters: kafka own storage")
-    val stream = kf.createDirectStream(ssc, kafkaParams, topics)
+    var stream = kf.createDirectStream(ssc, kafkaParams, topics)
   }
-
-  // PROPERTIES文件读取
-  val kuduClient = new KuduClient.KuduClientBuilder(properties.getProperty("kudu.master")).build()
 
   val timeFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
   val dayFormat: SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd")
   val total = ssc.sparkContext.longAccumulator("total")
   val btName = new ArrayBuffer[String]()
   val currentTs = new ArrayBuffer[String]()
-  // 保存偏移量
+
+  // 数据处理
   stream.foreachRDD {
     (rdd, time) =>
       if (!rdd.isEmpty()) {
@@ -165,24 +162,29 @@ object ConsumerMain extends App {
 
         //保存偏移量
         // zk存储偏移量
-        val o: OffsetRange = offsetRanges(get.partitionId)
-        println(s"[ ConsumerMain ] topic: ${o.topic}; partition: ${o.partition}; fromoffset: ${o.fromOffset}; utiloffset: ${o.untilOffset}")
-        // 写zookeeper
-        zk.zkSaveOffset(s"${o.topic}offset", s"${o.partition}", s"${o.topic},${o.partition},${o.fromOffset},${o.untilOffset}")
+        for (i <- 0 until offsetRanges.length) {
+          println(s"[ ConsumerMain ] topic: ${offsetRanges(i).topic}; partition: ${offsetRanges(i).partition}; " +
+            s"fromoffset: ${offsetRanges(i).fromOffset}; utiloffset: ${offsetRanges(i).untilOffset}")
+          // 写zookeeper
+          zk.zkSaveOffset(s"${offsetRanges(i).topic}offset", s"${offsetRanges(i).partition}",
+            s"${offsetRanges(i).topic},${offsetRanges(i).partition},${offsetRanges(i).fromOffset},${offsetRanges(i).untilOffset}")
+        }
         // 关闭
         zk.zooKeeper.close()
-
-        val offset: ArrayBuffer[String] = new ArrayBuffer[String]()
+        // 写本地文件系统 -清空
+        val fw1 = new FileWriter(new File("./files/offset.log"), false)
+        fw1.write("")
+        fw1.flush()
+        fw1.close()
+        // 写本地文件系统 -追加
+        val fw2 = new FileWriter(new File("./files/offset.log"), true)
         for (i <- 0 until offsetRanges.length) {
-          offset += (offsetRanges(i).topic + "," + offsetRanges(i).partition + "," + offsetRanges(i).fromOffset + "," + offsetRanges(i).untilOffset)
+          fw2.write(offsetRanges(i).topic + "," + offsetRanges(i).partition + "," + offsetRanges(i).fromOffset + "," + offsetRanges(i).untilOffset + "\n")
         }
-        // 写本地文件系统 -覆盖
-        val fwl = new FileWriter(new File("./files/offset.log"), false)
-        fwl.write(s"${offset} \n")
-        fwl.close()
+        fw2.close()
         // 新版本Kafka自身保存
         stream.asInstanceOf[CanCommitOffsets].commitAsync(offsetRanges)
-
+        kuduClient.close()
       } else {
         println(s"[ ConsumerMain ] no data during this time period (${Seconds(5)})")
         //于HDFS上记录日志

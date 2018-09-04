@@ -43,7 +43,6 @@ object SparkTraining extends App {
     println("}")
   })
 
-
   ssc.start()
   ssc.awaitTermination()
 

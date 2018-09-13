@@ -9,10 +9,7 @@ tabdir=/home/test
 #目标表 - 清单数据
 targetListCol(){
 	#清空目标数据
-	hive -e "use $1;truncate table bdat_chk_v4_list_gis"
-	hive -e "use $1;truncate table bdat_chk_v4_list_spc"
-	hive -e "use $1;truncate table bdat_chk_v4_list_trs"
-	hive -e "use $1;truncate table bdat_chk_v4_list_wls"
+	hive -e "use $1;truncate table bdat_chk_v4_list_gis;truncate table bdat_chk_v4_list_spc;truncate table bdat_chk_v4_list_trs;truncate table bdat_chk_v4_list_wls"
     #获取目标表需要的字段信息
 	#表结构导出 --清单表表结构一致所有选取一个即可
 	hive -e "use $1;desc bdat_chk_v4_list_spc" > ${tabdir}/tmp/bdat_chk_v4_list_spc.lst

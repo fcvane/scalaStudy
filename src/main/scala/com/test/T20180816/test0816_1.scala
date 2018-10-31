@@ -2,6 +2,7 @@ package com.test.T20180816
 
 import java.text.SimpleDateFormat
 
+import org.apache.hadoop.fs.Path
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.{SparkConf, SparkContext}
 
@@ -15,6 +16,7 @@ object test0816_1 {
    * 实现 本地模式运行、文件加载、时间格式化、结果打印等
    */
   def main(args: Array[String]): Unit = {
+    val path = new Path("hdfs:///user/s_it_res/synchronize/topics/wordCount_2018-09-18");
     // 设置日志级别
     Logger.getLogger("org").setLevel(Level.INFO)
     // 时间格式化
